@@ -2,6 +2,8 @@ from PLL_Lib import Arduino, Picoscope
 from typing import List
 import csv
 import numpy as np
+import time
+import os
 
 class DataCollector:
     def __init__(self, period, phase, iterations):
@@ -50,7 +52,7 @@ class DataCollector:
             assert self.phase / time_per_sample >= 10
 
         # eg inputs:
-        # period = 100, phase = 10, time_per_sample = 1e-6
+        # period = 100micro_s, phase = 10micro_s, time_per_sample = 1e-6
 
         with Arduino() as arduino:
             if time_per_sample not in self.map:
@@ -69,23 +71,33 @@ class DataCollector:
                 s = f'{self.period / 2},{self.phase}#'
                 arduino.send_code(s)
 
+                time.sleep(1)
+
                 _, voltage_ref, _ = scope.wait_for_key('s', 'Press to start')
                 
-                times = np.zeros((self.iterations, voltage_ref.size))
-                voltages_a = np.zeros_like(times)
-                voltages_b = np.zeros_like(times)
+                voltages_a = np.zeros((self.iterations, voltage_ref.size), dtype=float)
+                voltages_b = np.zeros_like(voltages_a, dtype=float)
 
                 for i in range(self.iterations):
-                    t, v_a, v_b = scope.get_trace(f'Caputring trace {i}...')
-                    times[i] = t
+                    _, v_a, v_b = scope.get_trace(f'Caputring trace {i}...')
                     voltages_a[i] = v_a
                     voltages_b[i] = v_b
         
-        with open(f'out_{self.period}_{self.phase}.csv', 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['Iteration', 'Times', 'V_A', 'V_B'])
+            dir_path = f'out_{self.period}_{self.phase}'
+            os.mkdir(dir_path)
+            os.chdir(dir_path)
+
             for i in range(self.iterations):
-                writer.writerow([i+1, times[i], voltages_a[i], voltages_b[i]])
+                with open(f'iteration={i+1}.csv', 'w', newline='') as file:
+                    writer = csv.writer(file)
+                    writer.writerow(['V_A', 'V_B'])
+
+                    for j in range(voltages_a.shape[1]):
+                        a = voltages_a[i, j]
+                        b = voltages_b[i, j]
+                        writer.writerow([1 if a>=2 else 0, 1 if b>=2 else 0])
+
+            os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
 
