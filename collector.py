@@ -92,11 +92,12 @@ class DataCollector:
                         for l in range(voltages_a.shape[1]):
                             a = voltages_a[k, l]
                             b = voltages_b[k, l]
-                            writer.writerow([1 if a >= 2 else 0, 1 if b >= 2 else 0])
+                            writer.writerow([1 if a >= 3 else 0, 1 if b >= 3 else 0])
                 time.sleep(1)
 
             # Change back to the original directory (optional)
             os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 
 
 
