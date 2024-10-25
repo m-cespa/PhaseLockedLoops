@@ -81,10 +81,18 @@ class DataCollector:
                     voltages_a = np.zeros((self.iterations, voltage_ref.shape[0]))
                     voltages_b = np.zeros_like(voltages_a)
 
+<<<<<<< HEAD
                     for j in range(self.iterations):
                         _, v_a, v_b = scope.get_trace(f'Capturing trace {j + 1} for input {i + 1}...')
                         voltages_a[j] = v_a
                         voltages_b[j] = v_b
+=======
+                        for l in range(voltages_a.shape[1]):
+                            a = voltages_a[k, l]
+                            b = voltages_b[k, l]
+                            writer.writerow([1 if a >= 3 else 0, 1 if b >= 3 else 0])
+                time.sleep(1)
+>>>>>>> 4e411aa5c2c5d211717e09f37d30ad40a5811aa1
 
                     # Write the data to CSV files
                     for k in range(self.iterations):
@@ -100,6 +108,7 @@ class DataCollector:
 
                 # Change back to the original directory (optional)
                 os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 
 
 
