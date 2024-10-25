@@ -41,11 +41,10 @@ class DataCollector:
             1e-2: '10ms'
         }
 
-    def send_code(self, phase: float) -> None:
-        with Arduino() as arduino:
-            s = f'{self.period / 2},{phase}#'
-            arduino.send_code(s)
-
+    def gen_code(self, phase: float) -> str:
+        s = f'{self.period / 2},{phase}#'
+        return s
+            
     def collect_data(self, time_per_sample: float, phases: List[float]) -> None:
         """
         Collects voltage and time data from the Picoscope for the specified iterations and inputs.
@@ -53,50 +52,54 @@ class DataCollector:
         :param inputs: List of tuples containing period and phase values.
         """
         if time_per_sample not in self.map:
-            time_per_sample = '5micro_s'
+            t = '5micro_s'
         else:
-            time_per_sample = self.map[time_per_sample]
+            t = self.map[time_per_sample]
 
-        with Picoscope(time_per_sample=time_per_sample, probe_10x=True, trigger_channel=self.trigger) as scope:
-            _, voltage_ref, _ = scope.wait_for_key('s', 'Press to start')
+        print(f'\nTime_per_sample = {t}\n')
 
-            n = len(phases)
-            # Create the base directory for saving data
-            base_dir = os.path.abspath(f"{self.data_type}_period={self.period}")
-            os.makedirs(base_dir, exist_ok=True)
+        with Arduino() as arduino:
 
-            for i in range(n):
-                phase = phases[i]
-                dir_path = os.path.join(base_dir, f'{self.data_type}_{self.period}_{phase}')
-                os.makedirs(dir_path, exist_ok=True)
+            with Picoscope(time_per_sample=t, probe_10x=True, trigger_channel=self.trigger) as scope:
+                _, voltage_ref, _ = scope.wait_for_key('s', 'Press to start')
 
-                self.send_code(phase)
+                n = len(phases)
+                # Create the base directory for saving data
+                base_dir = os.path.abspath(f"{self.data_type}_period={self.period}")
+                os.makedirs(base_dir, exist_ok=True)
 
-                time.sleep(1)
+                for i in range(n):
+                    phase = phases[i]
+                    dir_path = os.path.join(base_dir, f'{self.data_type}_{self.period}_{phase}')
+                    os.makedirs(dir_path, exist_ok=True)
 
-                # Initialize arrays to hold voltage readings
-                voltages_a = np.zeros((self.iterations, voltage_ref.shape[0]))
-                voltages_b = np.zeros_like(voltages_a)
+                    arduino.send_code(self.gen_code(phase))
 
-                for j in range(self.iterations):
-                    _, v_a, v_b = scope.get_trace(f'Capturing trace {j + 1} for input {i + 1}...')
-                    voltages_a[j] = v_a
-                    voltages_b[j] = v_b
+                    time.sleep(1)
 
-                # Write the data to CSV files
-                for k in range(self.iterations):
-                    with open(os.path.join(dir_path, f'iteration={k + 1}.csv'), 'w', newline='') as file:
-                        writer = csv.writer(file)
-                        writer.writerow(['V_A', 'V_B'])
+                    # Initialize arrays to hold voltage readings
+                    voltages_a = np.zeros((self.iterations, voltage_ref.shape[0]))
+                    voltages_b = np.zeros_like(voltages_a)
 
-                        for l in range(voltages_a.shape[1]):
-                            a = voltages_a[k, l]
-                            b = voltages_b[k, l]
-                            writer.writerow([1 if a >= 2 else 0, 1 if b >= 2 else 0])
-                time.sleep(1)
+                    for j in range(self.iterations):
+                        _, v_a, v_b = scope.get_trace(f'Capturing trace {j + 1} for input {i + 1}...')
+                        voltages_a[j] = v_a
+                        voltages_b[j] = v_b
 
-            # Change back to the original directory (optional)
-            os.chdir(os.path.dirname(os.path.abspath(__file__)))
+                    # Write the data to CSV files
+                    for k in range(self.iterations):
+                        with open(os.path.join(dir_path, f'iteration={k + 1}.csv'), 'w', newline='') as file:
+                            writer = csv.writer(file)
+                            writer.writerow(['V_A', 'V_B'])
+
+                            for l in range(voltages_a.shape[1]):
+                                a = voltages_a[k, l]
+                                b = voltages_b[k, l]
+                                writer.writerow([a, 1 if b >= 4 else 0])
+                    time.sleep(1)
+
+                # Change back to the original directory (optional)
+                os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
 
