@@ -6,7 +6,7 @@ import time
 import os
 
 class DataCollector:
-    def __init__(self, iterations: int, trigger: str, data_type: str, period: float):
+    def __init__(self, iterations: int, trigger: str, data_name: str, period: float):
         """
         Initializes the DataCollector with specified parameters.
         :param iterations: Number of iterations for averaging.
@@ -17,7 +17,7 @@ class DataCollector:
 
         self.iterations = iterations
         self.trigger = trigger
-        self.data_type = data_type
+        self.data_name = data_name
         self.period = period
 
         self.map = {
@@ -44,7 +44,43 @@ class DataCollector:
     def gen_code(self, phase: float) -> str:
         s = f'{self.period / 2},{phase}#'
         return s
-            
+    
+    def collect_single(self, time_per_sample: float, label: str) -> None:
+        """
+        Collects voltage data and saves it to a CSV file.
+        """
+        if time_per_sample not in self.map:
+            t = '5micro_s'
+        else:
+            t = self.map[time_per_sample]
+
+        print(f'\nTime_per_sample = {t}\n')
+
+        with Picoscope(time_per_sample=t, probe_10x=True, trigger_channel=self.trigger) as scope:
+            _, voltage_ref, _ = scope.wait_for_key('s', 'Press to start')
+
+            _, v_a, v_b = scope.get_trace('Capturing data...\n')
+
+            # Specify the filename directly
+            file_path = f"{self.data_name}_{label}.csv"
+            with open(file_path, 'w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(['OUT', 'IN'])  # Header for the single column
+
+                # Write each value of voltages_a into the column
+                for i in range (v_a.shape[0]):
+                    val_a = v_a[i]
+                    val_b = v_b[i]
+
+                    if val_a > 4:
+                        val_a = 2
+                    elif val_a > 1.5:
+                        val_a = 1
+                    else:
+                        val_a = 0
+
+                    writer.writerow([val_a, 1 if val_b > 4 else 0])
+
     def collect_data(self, time_per_sample: float, phases: List[float]) -> None:
         """
         Collects voltage and time data from the Picoscope for the specified iterations and inputs.
@@ -65,12 +101,12 @@ class DataCollector:
 
                 n = len(phases)
                 # Create the base directory for saving data
-                base_dir = os.path.abspath(f"{self.data_type}_period={self.period}")
+                base_dir = os.path.abspath(f"{self.data_name}_period={self.period}")
                 os.makedirs(base_dir, exist_ok=True)
 
                 for i in range(n):
                     phase = phases[i]
-                    dir_path = os.path.join(base_dir, f'{self.data_type}_{self.period}_{phase}')
+                    dir_path = os.path.join(base_dir, f'{self.data_name}_{self.period}_{phase}')
                     os.makedirs(dir_path, exist_ok=True)
 
                     arduino.send_code(self.gen_code(phase))
@@ -81,18 +117,10 @@ class DataCollector:
                     voltages_a = np.zeros((self.iterations, voltage_ref.shape[0]))
                     voltages_b = np.zeros_like(voltages_a)
 
-<<<<<<< HEAD
                     for j in range(self.iterations):
                         _, v_a, v_b = scope.get_trace(f'Capturing trace {j + 1} for input {i + 1}...')
                         voltages_a[j] = v_a
                         voltages_b[j] = v_b
-=======
-                        for l in range(voltages_a.shape[1]):
-                            a = voltages_a[k, l]
-                            b = voltages_b[k, l]
-                            writer.writerow([1 if a >= 3 else 0, 1 if b >= 3 else 0])
-                time.sleep(1)
->>>>>>> 4e411aa5c2c5d211717e09f37d30ad40a5811aa1
 
                     # Write the data to CSV files
                     for k in range(self.iterations):
