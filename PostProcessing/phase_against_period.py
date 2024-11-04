@@ -4,8 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def calculate_frequency_and_average_phase(folder_path):
-    frequencies = []
-    phase_averages = []
+    frequency_phase_pairs = []  # List to store (frequency, phase_average) tuples
 
     # Loop through all subfolders
     for subfolder in os.listdir(folder_path):
@@ -18,7 +17,6 @@ def calculate_frequency_and_average_phase(folder_path):
 
             # Calculate frequency (in Hz)
             frequency = 1 / (period_us * 1e-6) if period_us > 0 else 0
-            frequencies.append(frequency)
 
             phase_sum = 0
             count = 0
@@ -44,26 +42,31 @@ def calculate_frequency_and_average_phase(folder_path):
             # Calculate the average phase if count is greater than zero
             phase_average = phase_sum / count if count > 0 else 0
 
-            print(f"Frequency: {frequency:.2f} Hz, Average Phase: {phase_average:.2f} µs")
+            # Append the frequency and phase average to the list
+            frequency_phase_pairs.append((frequency, phase_average))
 
-            phase_averages.append(phase_average)
+    # Sort the list of tuples by frequency (first element of the tuple)
+    frequency_phase_pairs.sort(key=lambda x: x[0])
+
+    # Unzip the sorted pairs into two lists
+    frequencies, phase_averages = zip(*frequency_phase_pairs) if frequency_phase_pairs else ([], [])
 
     return frequencies, phase_averages
 
 def plot_results(frequencies, phase_averages):
     plt.figure(figsize=(10, 6))
-    plt.plot(frequencies, phase_averages, marker='o', linestyle='-', color='blue')
-    plt.title('Average Phase Shift vs Frequency (pc1)')
+    plt.plot(frequencies, phase_averages, marker='x', linestyle='-', markersize=4)
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Average Phase Shift (µs)')
     plt.grid()
-    # plt.savefig('Phase_Shift_vs_Frequency_pc2_NEW.png', dpi=300)
+    plt.savefig('Phase_frequency_PC2.png', dpi=300)
     plt.show()
 
 if __name__ == "__main__":
-    folder_path = 'NEW_Phase_Input_pc1_period=1000'  # Set this to your folder path
+    folder_path = 'Data/Phase_Shift_vs_Frequency/NEW_Phase_Input_pc2_period=1000'  # Set this to your folder path
     frequencies, phase_averages = calculate_frequency_and_average_phase(folder_path)
     plot_results(frequencies, phase_averages)
+
 
 
 
