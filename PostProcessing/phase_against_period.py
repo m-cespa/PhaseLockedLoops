@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def calculate_frequency_and_average_phase(folder_path):
-    frequency_phase_pairs = []  # List to store (frequency, phase_average) tuples
+    frequency_phase_pairs = []  # List to store (frequency, phase_average, phase_std_dev) tuples
 
     # Loop through all subfolders
     for subfolder in os.listdir(folder_path):
@@ -18,8 +18,7 @@ def calculate_frequency_and_average_phase(folder_path):
             # Calculate frequency (in Hz)
             frequency = 1 / (period_us * 1e-6) if period_us > 0 else 0
 
-            phase_sum = 0
-            count = 0
+            phase_values = []  # Store all phase values for this frequency
 
             # Read the CSV files for the three iterations
             for i in range(1, 4):
@@ -34,41 +33,39 @@ def calculate_frequency_and_average_phase(folder_path):
                         phase = pd.to_numeric(data[1], errors='coerce')
 
                         # Check for NaN values and handle them
-                        if not phase.isnull().all():
-                            # Sum the second column, ignoring NaN values
-                            phase_sum += phase.sum()
-                            count += phase.notna().sum()  # Count valid (non-NaN) entries
+                        phase_values.extend(phase.dropna().tolist())  # Add valid (non-NaN) entries
 
-            # Calculate the average phase if count is greater than zero
-            phase_average = phase_sum / count if count > 0 else 0
+            # Calculate average phase and standard deviation if there are valid entries
+            if phase_values:
+                phase_average = np.mean(phase_values)
+                phase_error = (np.std(phase_values) + 1) / np.sqrt(len(phase_values))
+            else:
+                phase_average = 0
+                phase_std_dev = 0
 
-            # Append the frequency and phase average to the list
-            frequency_phase_pairs.append((frequency, phase_average))
+            # Append the frequency, phase average, and phase std dev to the list
+            frequency_phase_pairs.append((frequency, phase_average, phase_error))
 
     # Sort the list of tuples by frequency (first element of the tuple)
     frequency_phase_pairs.sort(key=lambda x: x[0])
 
-    # Unzip the sorted pairs into two lists
-    frequencies, phase_averages = zip(*frequency_phase_pairs) if frequency_phase_pairs else ([], [])
+    # Unzip the sorted pairs into three lists
+    frequencies, phase_averages, phase_errors = zip(*frequency_phase_pairs) if frequency_phase_pairs else ([], [], [])
 
-    return frequencies, phase_averages
+    return frequencies, phase_averages, phase_errors
 
-def plot_results(frequencies, phase_averages):
+def plot_results(frequencies, phase_averages, phase_errors):
     plt.figure(figsize=(10, 6))
-    plt.plot(frequencies, phase_averages, marker='x', linestyle='-', markersize=4)
+    plt.errorbar(frequencies, phase_averages, yerr=phase_errors, fmt='x', capsize=3, markersize=3, label=r"$\text{error} = \frac{\sigma_{\phi}}{\sqrt{N}}$")
+    plt.plot(frequencies, phase_averages, linestyle='-', alpha=0.6)
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Average Phase Shift (µs)')
     plt.grid()
-    plt.savefig('Phase_frequency_PC2.png', dpi=300)
+    plt.legend()
+    plt.savefig('Phase_frequency_PC1_errors.png', dpi=300)
     plt.show()
 
 if __name__ == "__main__":
-    folder_path = 'Data/Phase_Shift_vs_Frequency/NEW_Phase_Input_pc2_period=1000'  # Set this to your folder path
-    frequencies, phase_averages = calculate_frequency_and_average_phase(folder_path)
-    plot_results(frequencies, phase_averages)
-
-
-
-
-
-
+    folder_path = 'Data/Phase_Shift_vs_Frequency/Phase_Input_pc1'  # Set this to your folder path
+    frequencies, phase_averages, phase_std_devs = calculate_frequency_and_average_phase(folder_path)
+    plot_results(frequencies, phase_averages, phase_std_devs)
